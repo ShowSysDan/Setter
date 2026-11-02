@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Default web panel port is now 5110 (was 5000) for `run.py` and `install.sh`.
+
 - In-app API library at `/reference` (nav: **API**): task cookbook with *Send*
   buttons, command and argument reference with the switcher's current source names,
   and shell / HTTP / Q-SYS / Crestron / Companion snippets pre-filled with this

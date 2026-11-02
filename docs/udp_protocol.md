@@ -101,5 +101,5 @@ its first word.
 
 **Bitfocus Companion** — the *Generic UDP* module, one action per button.
 
-**Anything with HTTP but no UDP** — `GET http://setter:5000/api/v1/cmd?c=FADE+2+25`
+**Anything with HTTP but no UDP** — `GET http://setter:5110/api/v1/cmd?c=FADE+2+25`
 (add `&format=text` for a plain `OK …` body, and `&api_key=…` if a key is set).

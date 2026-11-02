@@ -88,7 +88,7 @@ Setter/
   python-dotenv, gunicorn).
 - A machine on the same network as the ATEM. Setter talks to the switcher on
   **UDP 9910** and listens for control strings on **UDP 9990** and the web
-  panel on **TCP 5000** (both configurable), so open those on any host
+  panel on **TCP 5110** (both configurable), so open those on any host
   firewall.
 - Linux with systemd for the production install. Development runs on
   Linux, macOS or Windows.
@@ -123,7 +123,7 @@ operational settings are on the **Settings** page.
 python run.py
 ```
 
-Open `http://localhost:5000`, go to **Settings**, enter the switcher's IP
+Open `http://localhost:5110`, go to **Settings**, enter the switcher's IP
 (Blackmagic's factory default is `192.168.10.240`) and the number of inputs
 and aux outputs you want on the panel. Setter connects as soon as you save.
 
@@ -180,7 +180,7 @@ and `sudo systemctl restart setter` to apply them.
 Options:
 
 ```
-PORT=8080 sudo bash install.sh          # web panel port (default 5000)
+PORT=8080 sudo bash install.sh          # web panel port (default 5110)
 HOST=10.1.1.5 sudo bash install.sh      # bind the panel to one interface (default 0.0.0.0)
 ```
 
@@ -194,7 +194,7 @@ Useful commands:
 sudo systemctl status setter          # running? last log lines
 sudo systemctl restart setter         # after editing .env
 sudo systemctl stop setter            # e.g. to run `python run.py` on the same port
-curl http://localhost:5000/healthz    # {"ok": true, "connection": "connected"} for monitoring
+curl http://localhost:5110/healthz    # {"ok": true, "connection": "connected"} for monitoring
 ```
 
 Logs:
@@ -240,7 +240,7 @@ run the service in debug mode.
 | `ALLOWED_NETWORKS` | *(unset)* | Comma-separated IPs / CIDRs allowed to make any HTTP request; unset = any |
 | `SETTINGS_FILE` | `instance/settings.json` | Where the Settings page stores its values |
 | `LOG_LEVEL` | `INFO` | Application log level |
-| `HOST` / `PORT` | `0.0.0.0` / `5000` | Bind address for `run.py` (dev only; the service takes them from `install.sh`) |
+| `HOST` / `PORT` | `0.0.0.0` / `5110` | Bind address for `run.py` (dev only; the service takes them from `install.sh`) |
 
 ---
 
@@ -341,7 +341,7 @@ lines instead of JSON. The HTTP status is 200 when every command succeeded
 and 422 otherwise, so a controller can check either.
 
 ```
-curl "http://setter:5000/api/v1/cmd?c=FADE+2+25&format=text"
+curl "http://setter:5110/api/v1/cmd?c=FADE+2+25&format=text"
 OK FADE 2 25 ME1
 ```
 
@@ -429,7 +429,7 @@ journalctl -t setter -b | grep startup   # should print nothing once all are set
 ### What is always on
 
 - **Cross-site request blocking.** A browser marks requests that a web page
-  on another site causes (an `<img src="http://setter:5000/api/v1/cmd?c=FTB">`,
+  on another site causes (an `<img src="http://setter:5110/api/v1/cmd?c=FTB">`,
   a hidden form) with `Sec-Fetch-Site: cross-site`; Setter refuses those.
   Control systems do not send that header and are unaffected. The internal
   `/api/` also only accepts JSON bodies, which an HTML form cannot produce.

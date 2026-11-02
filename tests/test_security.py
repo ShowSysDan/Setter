@@ -61,12 +61,12 @@ class HttpHardening(unittest.TestCase):
         self.assertEqual(r.headers["Cache-Control"], "no-store")
         r = c.get("/settings")
         self.assertEqual(r.status_code, 200)
-        r = c.get("/reference", base_url="http://10.1.1.5:5000")
+        r = c.get("/reference", base_url="http://10.1.1.5:5110")
         self.assertEqual(r.status_code, 200)
         html = r.get_data(as_text=True)
         self.assertIn('data-send="FADE 2 1s"', html)
         self.assertIn("10.1.1.5:9990", html)                  # UDP target from this Setter's address
-        self.assertIn("http://10.1.1.5:5000/api/v1/cmd", html)
+        self.assertIn("http://10.1.1.5:5110/api/v1/cmd", html)
         self.assertNotIn("<script>", html)                    # CSP: nothing inline
 
     def test_cross_site_requests_refused(self):
