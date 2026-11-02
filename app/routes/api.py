@@ -39,11 +39,9 @@ def get_settings():
 @bp.post("/settings")
 def put_settings():
     ctl = _controller()
-    data = request.get_json(silent=True) or request.form.to_dict()
-    # HTML checkboxes are absent when unticked; treat a missing bool as false on form posts
-    if not request.is_json:
-        for key in ("auto_connect", "udp_enabled", "udp_reply"):
-            data.setdefault(key, "false")
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "send a JSON object of settings"}), 400
     try:
         changed = ctl.settings.update(data)
     except SettingsError as exc:
@@ -93,9 +91,9 @@ def disconnect():
 @bp.post("/command")
 def command():
     """Run a control string - exactly what the UDP listener would do with it."""
-    data = request.get_json(silent=True) or {}
-    text = data.get("text") or request.form.get("text") or ""
-    if not text.strip():
+    data = request.get_json(silent=True)
+    text = data.get("text") if isinstance(data, dict) else None
+    if not isinstance(text, str) or not text.strip():
         return jsonify({"ok": False, "replies": ["ERR empty command"]}), 400
     replies = _controller().run(text, via="ui", sender=request.remote_addr)
     ok = all(r.startswith(("OK", "PONG")) for r in replies)
@@ -104,8 +102,10 @@ def command():
 
 @bp.post("/raw")
 def raw():
-    data = request.get_json(silent=True) or {}
-    name = (data.get("name") or "").strip()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "send a JSON body"}), 400
+    name = str(data.get("name") or "").strip()
     hexstr = "".join(str(data.get("hex") or "").split()).replace(":", "")
     if len(name) != 4:
         return jsonify({"ok": False, "error": "command name must be 4 characters"}), 400

@@ -17,6 +17,8 @@ from functools import wraps
 
 from flask import Blueprint, Response, current_app, jsonify, request
 
+from ..security import constant_time_equal
+
 bp = Blueprint("external_api", __name__, url_prefix="/api/v1")
 
 
@@ -30,7 +32,7 @@ def require_key(view):
         key = current_app.config.get("API_KEY")
         if key:
             supplied = request.headers.get("X-API-Key") or request.args.get("api_key")
-            if supplied != key:
+            if not constant_time_equal(supplied, key):
                 return jsonify({"ok": False, "error": "invalid or missing API key"}), 401
         return view(*args, **kwargs)
     return wrapper
@@ -55,7 +57,7 @@ def cmd():
             text = data
         else:
             text = request.get_data(as_text=True)
-    text = (text or "").strip()
+    text = (text or "").strip() if isinstance(text, str) else ""
     if not text:
         return jsonify({"ok": False, "replies": ["ERR empty command"]}), 400
     replies = _controller().run(text, via="v1", sender=request.remote_addr)

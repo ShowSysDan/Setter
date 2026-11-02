@@ -1,20 +1,55 @@
 # Reference systemd unit. install.sh writes a concrete copy of this to
-# /etc/systemd/system/setter.service with the real user and paths filled in.
+# /etc/systemd/system/setter.service with the real user, paths, bind
+# address and port filled in. Edit install.sh (or the installed copy), not
+# this file, to change a deployment.
 
 [Unit]
 Description=Setter - ATEM switcher control bridge
 After=network-online.target
 Wants=network-online.target
+# Never give up restarting: this has to come back on its own during a show.
+StartLimitIntervalSec=0
 
 [Service]
+Type=simple
 User=setter
 WorkingDirectory=/home/setter/Setter
 EnvironmentFile=/home/setter/Setter/.env
 # One worker only: the switcher session and the UDP listener live in the process.
 # --env wins over anything in .env (systemd lets EnvironmentFile override Environment=).
-ExecStart=/home/setter/Setter/venv/bin/gunicorn --workers 1 --threads 4 --env FLASK_ENV=production --bind 0.0.0.0:5000 "app:create_app()"
+ExecStart=/home/setter/Setter/venv/bin/gunicorn --workers 1 --threads 4 --timeout 30 --graceful-timeout 10 \
+    --env FLASK_ENV=production --bind 0.0.0.0:5000 "app:create_app()"
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=3
+TimeoutStopSec=15
+UMask=0077
+# The checkout is read-only to the service, so do not try to write .pyc files into it
+Environment=PYTHONDONTWRITEBYTECODE=1
+
+# --- sandboxing: the process only needs the network, its own folder and /dev/log
+NoNewPrivileges=true
+CapabilityBoundingSet=
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/setter/Setter/instance
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
 
 [Install]
 WantedBy=multi-user.target

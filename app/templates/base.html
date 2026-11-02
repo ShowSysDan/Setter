@@ -6,11 +6,12 @@
   <title>{% block title %}Setter{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body data-page="{% block page %}{% endblock %}">
   <header class="topbar">
     <a class="brand" href="{{ url_for('main.index') }}">Setter</a>
     <nav class="topnav">
       <a href="{{ url_for('main.index') }}" {% if current_path == '/' %}aria-current="page"{% endif %}>Switcher</a>
+      <a href="{{ url_for('main.reference') }}" {% if current_path.startswith('/reference') %}aria-current="page"{% endif %}>API</a>
       <a href="{{ url_for('main.settings') }}" {% if current_path.startswith('/settings') %}aria-current="page"{% endif %}>Settings</a>
     </nav>
     <div class="conn" id="conn" data-state="{{ status.connection.state }}">

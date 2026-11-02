@@ -132,6 +132,22 @@ class _DroppingQueueHandler(logging.handlers.QueueHandler):
         pass
 
 
+MAX_FIELD_LENGTH = 400
+
+
+def _clean(value):
+    """Make a field safe for a single syslog line: no control characters (a
+    newline in a UDP control string must not become a forged log entry) and
+    a bounded length."""
+    if isinstance(value, (bool, int, float)) or value is None:
+        return value
+    text = str(value)
+    text = "".join(ch if ch.isprintable() else " " for ch in text)
+    if len(text) > MAX_FIELD_LENGTH:
+        text = text[:MAX_FIELD_LENGTH] + "...(truncated)"
+    return text
+
+
 class AuditLog:
     def __init__(self, tag: str = "setter", maxlen: int = 300):
         self.tag = tag
@@ -244,8 +260,9 @@ class AuditLog:
 
     # ------------------------------------------------------------------ logging
     def log(self, level: int, message: str, **fields):
-        extra = " ".join(f"{k}={v}" for k, v in fields.items() if v is not None)
-        self.logger.log(level, f"{message} {extra}".rstrip())
+        clean = {k: _clean(v) for k, v in fields.items() if v is not None}
+        extra = " ".join(f"{k}={v}" for k, v in clean.items())
+        self.logger.log(level, f"{_clean(message)} {extra}".rstrip())
         with self._lock:
             self._seq += 1
             self.events.append({
@@ -253,7 +270,7 @@ class AuditLog:
                 "ts": time.time(),
                 "level": logging.getLevelName(level).lower(),
                 "message": message,
-                "fields": {k: v for k, v in fields.items() if v is not None},
+                "fields": clean,
             })
 
     def info(self, message: str, **fields):

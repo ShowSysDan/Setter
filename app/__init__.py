@@ -14,6 +14,7 @@ import os
 
 from flask import Flask, request
 
+from . import security
 from .__version__ import __version__
 from .services.audit_log import AuditLog
 from .services.controller import Controller
@@ -46,6 +47,7 @@ def create_app(config_object=None, autostart: bool | None = None) -> Flask:
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp)
     app.register_blueprint(external_bp)
+    security_warnings = security.init_app(app)
 
     @app.context_processor
     def inject_globals():
@@ -55,5 +57,9 @@ def create_app(config_object=None, autostart: bool | None = None) -> Flask:
         autostart = app.config.get("SETTER_AUTOSTART", True)
     if autostart:
         controller.start()
+    for text in security_warnings:
+        audit.warning(text, via="startup")
+    if settings.get("udp_enabled") and not settings.get("udp_allowed_senders"):
+        audit.warning("UDP control accepts commands from any address; set 'Allowed senders' in Settings", via="startup")
 
     return app

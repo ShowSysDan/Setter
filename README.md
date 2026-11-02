@@ -20,9 +20,11 @@ Current version: **0.1.0**
 | **Configurable layout** | Set how many inputs, MEs, aux outputs, DSKs and macros to show; the control strings validate against the same numbers |
 | **UDP control** | Text commands like `FADE 2 25` on a UDP port, with `OK` / `ERR` replies back to the sender |
 | **HTTP control** | The same commands at `/api/v1/cmd` for systems that prefer HTTP; optional API key |
+| **In-app API library** | The **API** page in the web UI: a cookbook (fade to a source on an ME, go to black, aux routing, keys, macros) with *Send* buttons that run each example on the live switcher, the full command reference, and ready-to-paste snippets for shell, HTTP, Q-SYS, Crestron and Companion, filled in with this Setter's address and port |
 | **Test tools** | A control-string box on the dashboard (same parser as UDP), a raw ATEM command sender, a switcher simulator, and a UDP send script |
 | **Live state** | Dashboard polls the switcher state every second — tallies, transition progress, FTB, DSK state |
 | **Reconnects** | Drops and reconnects automatically; handles the ATEM's ack / retransmit scheme |
+| **Access control** | UDP sender allowlist, HTTP address allowlist, panel password, API key, cross-site request blocking, sandboxed systemd service — see [Security](#security) |
 | **Syslog audit log** | Every command, connection event and incoming control string, with who sent it — to local syslog and to a remote syslog server (UDP or TCP) |
 | **Responsive UI** | Usable from a phone at the back of the room; 60 px tap targets |
 
@@ -35,6 +37,7 @@ Setter/
 ├── app/
 │   ├── __init__.py              # App factory — settings, audit log, starts switcher + UDP threads
 │   ├── __version__.py
+│   ├── security.py              # HTTP allowlist, panel password, cross-site blocking, headers
 │   ├── routes/
 │   │   ├── main.py              # HTML pages (/ and /settings)
 │   │   ├── api.py               # Internal REST API (/api/) used by the dashboard
@@ -61,13 +64,14 @@ Setter/
 │   └── udp_send.py              # Send a control string and print the reply
 ├── tests/
 │   ├── test_parser.py
+│   ├── test_security.py         # Allowlists, auth, CSRF blocking, headers, log sanitising
 │   ├── test_syslog.py           # Remote syslog delivery over UDP and TCP, unreachable server
 │   └── test_end_to_end.py       # Simulator -> Setter -> UDP/HTTP, checks state follows
 ├── config.py                    # Dev / Production config classes
 ├── run.py                       # Dev entry point
 ├── requirements.txt
 ├── setter.service              # systemd unit reference (written by install.sh)
-├── install.sh                   # production install: venv + service
+├── install.sh                   # production install: venv + hardened service
 ├── .env.example
 ├── CHANGELOG.md
 └── README.md
@@ -77,10 +81,11 @@ Setter/
 
 ## Requirements
 
-- **Python 3.9 or newer** with `venv` and `pip`. On Debian, Ubuntu and
-  Raspberry Pi OS: `sudo apt install python3 python3-venv python3-pip git`.
-  Everything else comes from `requirements.txt` (Flask, python-dotenv,
-  gunicorn).
+- **Python 3.10 or newer** with `venv` and `pip` (Raspberry Pi OS Bookworm,
+  Debian 12, Ubuntu 22.04 or later). On those:
+  `sudo apt install python3 python3-venv python3-pip git`. Everything else
+  comes from `requirements.txt`, pinned to exact tested versions (Flask,
+  python-dotenv, gunicorn).
 - A machine on the same network as the ATEM. Setter talks to the switcher on
   **UDP 9910** and listens for control strings on **UDP 9990** and the web
   panel on **TCP 5000** (both configurable), so open those on any host
@@ -164,14 +169,33 @@ The script:
    root);
 2. creates `.env` from `.env.example` if there is none, with
    `FLASK_ENV=production` and a random `SECRET_KEY` already filled in;
-3. writes `/etc/systemd/system/setter.service` with that user and path,
-   then enables the service and (re)starts it.
+3. writes `/etc/systemd/system/setter.service` with that user and path
+   (sandboxed: no privileges, read-only filesystem except `instance/`,
+   restart forever), then enables the service and (re)starts it.
 
-It prints the URL when it finishes. To require a key on the external
-`/api/v1/` endpoints, add `API_KEY=...` to `.env` and
-`sudo systemctl restart setter`.
+It prints the URL when it finishes, and a reminder if `.env` sets none of
+the access controls described under [Security](#security). Edit `.env`
+and `sudo systemctl restart setter` to apply them.
 
-To serve on a different port: `PORT=8080 sudo bash install.sh`.
+Options:
+
+```
+PORT=8080 sudo bash install.sh          # web panel port (default 5000)
+HOST=10.1.1.5 sudo bash install.sh      # bind the panel to one interface (default 0.0.0.0)
+```
+
+The service runs as the account you ran `sudo` from, which only needs to
+own the checkout. Ports below 1024 work: the unit grants just
+`CAP_NET_BIND_SERVICE` in that case.
+
+Useful commands:
+
+```
+sudo systemctl status setter          # running? last log lines
+sudo systemctl restart setter         # after editing .env
+sudo systemctl stop setter            # e.g. to run `python run.py` on the same port
+curl http://localhost:5000/healthz    # {"ok": true, "connection": "connected"} for monitoring
+```
 
 Logs:
 
@@ -211,9 +235,12 @@ run the service in debug mode.
 | `FLASK_ENV` | `development` | `development` or `production`. The systemd unit forces `production` |
 | `SECRET_KEY` | insecure default | Flask session secret. `install.sh` generates a random one; set your own if you create `.env` by hand |
 | `API_KEY` | *(unset)* | Key required on `/api/v1/`; leave unset for open LAN access |
+| `PANEL_PASSWORD` | *(unset)* | HTTP Basic auth password for the web panel and `/api/`; unset = no login |
+| `PANEL_USER` | `setter` | Username for the above |
+| `ALLOWED_NETWORKS` | *(unset)* | Comma-separated IPs / CIDRs allowed to make any HTTP request; unset = any |
 | `SETTINGS_FILE` | `instance/settings.json` | Where the Settings page stores its values |
 | `LOG_LEVEL` | `INFO` | Application log level |
-| `HOST` / `PORT` | `0.0.0.0` / `5000` | Bind address for `run.py` (dev only) |
+| `HOST` / `PORT` | `0.0.0.0` / `5000` | Bind address for `run.py` (dev only; the service takes them from `install.sh`) |
 
 ---
 
@@ -231,8 +258,10 @@ Stored in `instance/settings.json`; changes apply immediately.
 | Downstream keys | 2 | DSK rows; `DSK n` range |
 | Macro buttons | 8 | Macro keys; `MACRO n` range |
 | Default rate | 25 frames | Initial rate in the transition panel |
-| UDP control | on, `0.0.0.0:9990` | The control listener |
+| UDP control | on, `0.0.0.0:9990` | The control listener. Bind address `0.0.0.0` is every interface; enter one interface's IP to listen only there |
 | Reply | on | Send `OK` / `ERR` lines back to the UDP sender |
+| Allowed senders | *(any)* | IPs / CIDRs that may send UDP control strings; anything else is dropped without a reply and logged |
+| RAW over UDP / HTTP | off | Whether `RAW <NAME> <hex>` is accepted from UDP and `/api/v1/`; the dashboard's raw sender always works |
 | Remote syslog | off | Server, port (514), UDP or TCP, facility (`local0`). A *Send test message* button confirms delivery |
 
 The Settings page also shows what the switcher reports about itself
@@ -242,7 +271,10 @@ The Settings page also shows what the switcher reports about itself
 
 ## Control Strings
 
-Full reference in [`docs/udp_protocol.md`](docs/udp_protocol.md). The short version:
+Full reference in [`docs/udp_protocol.md`](docs/udp_protocol.md), and on the
+**API** page of the running app (`/reference`), where every example has a
+*Send* button and the snippets already carry your Setter's address and
+port. The short version:
 
 ```
 PGM <src> [MEn]      PVW <src> [MEn]      CUT [MEn]      AUTO [MEn]
@@ -253,7 +285,9 @@ MACRO <n>            RAW <NAME> <hex>     PING | STATUS | HELP
 ```
 
 `<src>` is an input number, a name like `BARS`, `COL1`, `MP1`, `PGM`, or
-`#<id>` for any raw ATEM source id. `<rate>` is frames (`25`) or seconds
+`#<id>` for any raw ATEM source id. `RAW` is refused from UDP and HTTP
+control unless enabled in Settings (the dashboard can always send it). A
+message may hold up to 32 commands of up to 200 characters each. `<rate>` is frames (`25`) or seconds
 (`1s`). Several commands per message: `PVW 3; CUT`.
 
 Every reply starts with `OK`, `ERR` or `PONG`:
@@ -278,6 +312,8 @@ feed shows what was sent.
 
 | Method | Endpoint | Description |
 |---|---|---|
+| GET | `/reference` | The in-app API library (HTML) |
+| GET | `/healthz` | `{"ok": true, "connection": "connected"}`; no login needed, for monitoring |
 | GET | `/api/version` | `{"version": "0.1.0"}` |
 | GET | `/api/status` | Connection state, settings, switcher state, inputs with names, UDP listener status |
 | GET | `/api/events?since=<id>` | Activity feed entries after `<id>` |
@@ -357,6 +393,76 @@ bound.
 If you would rather keep Setter's own config minimal, leave remote syslog
 off and forward LOCAL0 from the machine's rsyslog instead; both routes
 carry the same entries.
+
+---
+
+## Security
+
+Setter can put a show to black with one datagram, so treat the box like
+any other piece of show control: on its own VLAN, reachable only from the
+control system and the operator positions. Everything below is on top of
+that, and each layer is independent.
+
+### Checklist before a show
+
+1. **Settings → UDP control → Allowed senders**: the IP of the Q-SYS core /
+   Crestron processor / Companion machine. Anything else is dropped silently.
+2. **`.env` → `ALLOWED_NETWORKS`**: the control VLAN and the operator laptops.
+   Any other address gets a 403 on every HTTP request, including `/healthz`.
+3. **`.env` → `PANEL_PASSWORD`**: a login on the web panel and its `/api/`.
+   Browsers remember it; control systems never touch these endpoints.
+4. **`.env` → `API_KEY`** if anything uses `/api/v1/` over HTTP, sent as
+   `X-API-Key: <key>` or `?api_key=<key>`.
+5. Leave **RAW over UDP / HTTP** off unless a cue needs it.
+6. Point **remote syslog** at the venue's log server so the audit trail
+   survives the box.
+
+Setter writes a WARNING to the audit log at start-up for each of these
+that is still open, so `journalctl -t setter -b` shows the state at a glance.
+
+```
+sudo nano ~/Setter/.env                 # PANEL_PASSWORD=..., ALLOWED_NETWORKS=..., API_KEY=...
+sudo systemctl restart setter
+journalctl -t setter -b | grep startup   # should print nothing once all are set
+```
+
+### What is always on
+
+- **Cross-site request blocking.** A browser marks requests that a web page
+  on another site causes (an `<img src="http://setter:5000/api/v1/cmd?c=FTB">`,
+  a hidden form) with `Sec-Fetch-Site: cross-site`; Setter refuses those.
+  Control systems do not send that header and are unaffected. The internal
+  `/api/` also only accepts JSON bodies, which an HTML form cannot produce.
+- **Response headers.** A Content Security Policy that forbids inline and
+  third-party script, no framing, no MIME sniffing, API responses never
+  cached. The pages carry no inline script at all.
+- **Input limits.** 64 KB HTTP bodies, 2 KB datagrams, 32 commands per
+  message, 200 characters per command, validated host names and addresses
+  in Settings. Control strings are stripped of control characters before
+  they reach syslog, so a crafted datagram cannot forge log lines.
+- **Constant-time** comparison of the API key and panel password.
+- **No debugger.** The dev server runs without the Werkzeug console;
+  production runs with `DEBUG` off regardless of `.env`.
+- **The systemd unit** runs as an unprivileged user with no capabilities
+  (`CAP_NET_BIND_SERVICE` only if the port is below 1024), a read-only view
+  of the filesystem except `instance/`, private `/tmp` and `/dev`, the
+  `@system-service` syscall filter, and `StartLimitIntervalSec=0` so it
+  restarts forever. `.env` and `instance/` are mode 600 / 700.
+  `systemd-analyze security setter` shows the result; if a future distro
+  rejects a directive the service log names it and the line can be removed
+  from `install.sh`.
+- **Pinned dependencies.** `requirements.txt` names exact versions that the
+  test suite was run against.
+
+### What it does not do
+
+- No HTTPS. Setter is meant for a LAN; if it must be reached across one,
+  put it behind a reverse proxy with TLS and keep `ALLOWED_NETWORKS` to the
+  proxy's address.
+- No per-user accounts or audit of *who* logged in; the audit log records
+  the sender's IP for every action, which on a show network is enough.
+- UDP cannot be authenticated. The allowlist is by source address, so the
+  control VLAN has to be one you trust.
 
 ---
 

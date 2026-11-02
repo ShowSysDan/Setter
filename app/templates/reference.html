@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Setter — API reference{% endblock %}
+{% block page %}reference{% endblock %}
+{% block content %}
+{% set s = status.settings %}
+{% set udp_ip = setter_ip if s.udp_host == '0.0.0.0' else s.udp_host %}
+{% set n = s.input_count %}
+
+<section class="ref-intro block">
+  <h2>How to reach this Setter</h2>
+  <table class="ref-table">
+    <tr><th>UDP control</th><td><code>{{ udp_ip }}:{{ s.udp_port }}</code>
+      {% if not s.udp_enabled %}<span class="warn">(off in Settings)</span>{% elif not status.udp.running %}<span class="warn">(not running: {{ status.udp.error }})</span>{% endif %}
+      {% if s.udp_allowed_senders %}<span class="help">— senders limited to {{ s.udp_allowed_senders }}</span>{% endif %}</td></tr>
+    <tr><th>HTTP control</th><td><code>{{ base_url }}api/v1/cmd?c=&lt;command&gt;</code>
+      {% if api_key_set %}<span class="help">— needs <code>X-API-Key</code> or <code>?api_key=</code></span>{% endif %}</td></tr>
+    <tr><th>Status</th><td><code>{{ base_url }}api/v1/status</code> &nbsp; <code>{{ base_url }}healthz</code></td></tr>
+    <tr><th>Switcher</th><td>{{ status.connection.product or 'not connected' }} at <code>{{ s.switcher_ip }}</code>,
+      inputs 1–{{ n }}, {{ s.me_count }} ME{{ 's' if s.me_count > 1 }}, {{ s.aux_count }} aux, {{ s.dsk_count }} DSK, {{ s.macro_count }} macros (from Settings)</td></tr>
+  </table>
+  <p class="hint">The same control string works on every path. Every <strong>Send</strong> button below runs the string on this switcher right now, exactly as a UDP datagram would, so you can prove a cue before programming it.</p>
+</section>
+
+<h2 class="ref-h">Cookbook</h2>
+<section class="ref-grid">
+{% set examples = [
+  ("Fade to a source on an ME",
+   "Preview the source, select a Mix, set the rate, auto-transition. One command.",
+   [("FADE 2 1s", "input 2 over one second, ME1"),
+    ("FADE 3 25", "input 3 over 25 frames"),
+    ("FADE 2 1s ME2", "same on ME2 (needs Mix effects ≥ 2 in Settings)"),
+    ("FADE 4", "input 4 at the current mix rate")]),
+  ("Cut to a source",
+   "Straight to program with no transition, or stage it on preview first.",
+   [("PGM 3", "input 3 to program now"),
+    ("PVW 3; CUT", "preview input 3, then cut"),
+    ("PGM BARS", "bars to program (safe state)"),
+    ("PGM BLACK", "black source to program")]),
+  ("Go to black and back",
+   "FTB toggles the switcher's fade-to-black. Send it again to fade back up. FTBRATE sets how long it takes.",
+   [("FTB", "fade to black (or back up) on ME1"),
+    ("FTBRATE 2s; FTB", "two-second fade to black"),
+    ("FADE BLACK 1s", "alternative: mix to the black source, leaving FTB alone")]),
+  ("Transition style and rate",
+   "Set the style and rate the switcher will use for AUTO and for the dashboard's Auto button.",
+   [("STYLE DIP; RATE 0.5s; AUTO", "half-second dip to whatever is on preview"),
+    ("STYLE WIPE ME1", "wipe for the next transition"),
+    ("RATE 50", "mix rate 50 frames")]),
+  ("Aux outputs",
+   "Route any source to an aux output. PGM / PVW follow the ME outputs.",
+   [("AUX 1 PGM", "aux 1 follows program"),
+    ("AUX 1 2", "input 2 on aux 1"),
+    ("AUX 2 MP1", "media player 1 on aux 2")]),
+  ("Keys and macros",
+   "Downstream keys cut or transition; upstream keys cut; macros run by number as in ATEM Software Control.",
+   [("DSK 1 AUTO", "DSK 1 on (or off) with its transition"),
+    ("DSK 1 OFF", "DSK 1 off, immediately"),
+    ("KEY 1 ON ME1", "upstream key 1 on"),
+    ("MACRO 3", "run macro 3")]),
+  ("Heartbeat and status",
+   "PING is a cheap keep-alive for a controller; STATUS tells you what is on air.",
+   [("PING", "replies PONG"),
+    ("STATUS", "OK CONNECTED <model> PGM=<name> PVW=<name>"),
+    ("HELP", "the command list")]),
+  ("Several steps in one message",
+   "Separate with ; or newlines. Each step gets its own reply line, in order. Up to 32 per message.",
+   [("AUX 1 BARS; PVW 2; RATE 1s; AUTO", "set aux, stage input 2, one-second auto"),
+    ("DSK 1 ON; FADE 1 2s", "key on, then a two-second fade to input 1")]),
+] %}
+{% for title, blurb, rows in examples %}
+  <div class="block ref-card">
+    <h3>{{ title }}</h3>
+    <p class="hint">{{ blurb }}</p>
+    {% for cmd, what in rows %}
+    <div class="ref-ex">
+      <code class="ref-cmd">{{ cmd }}</code>
+      <span class="ref-what">{{ what }}</span>
+      <button class="btn small" type="button" data-send="{{ cmd }}">Send</button>
+      <pre class="reply ref-reply" hidden></pre>
+    </div>
+    {% endfor %}
+  </div>
+{% endfor %}
+</section>
+
+<section class="ref-grid two">
+  <div class="block">
+    <h3>Commands</h3>
+    <table class="ref-table">
+      <tr><td><code>PGM &lt;src&gt; [MEn]</code></td><td>cut source to program</td></tr>
+      <tr><td><code>PVW &lt;src&gt; [MEn]</code></td><td>source to preview</td></tr>
+      <tr><td><code>CUT [MEn]</code></td><td>preview becomes program</td></tr>
+      <tr><td><code>AUTO [MEn]</code></td><td>auto transition, current style and rate</td></tr>
+      <tr><td><code>FADE &lt;src&gt; [rate] [MEn]</code></td><td>preview, mix, optional rate, auto (<code>MIX</code> is an alias)</td></tr>
+      <tr><td><code>STYLE &lt;mix|dip|wipe|dve|sting&gt; [MEn]</code></td><td>next transition style</td></tr>
+      <tr><td><code>RATE &lt;rate&gt; [MEn]</code></td><td>mix rate</td></tr>
+      <tr><td><code>FTB [MEn]</code></td><td>toggle fade to black</td></tr>
+      <tr><td><code>FTBRATE &lt;rate&gt; [MEn]</code></td><td>fade-to-black rate</td></tr>
+      <tr><td><code>AUX &lt;n&gt; &lt;src&gt;</code></td><td>route source to aux n</td></tr>
+      <tr><td><code>DSK &lt;n&gt; &lt;on|off|auto|toggle&gt;</code></td><td>downstream keyer</td></tr>
+      <tr><td><code>KEY &lt;n&gt; &lt;on|off&gt; [MEn]</code></td><td>upstream keyer</td></tr>
+      <tr><td><code>MACRO &lt;n&gt;</code></td><td>run macro n</td></tr>
+      <tr><td><code>RAW &lt;NAME&gt; &lt;hex&gt;</code></td><td>raw ATEM command{% if not s.raw_external %} (dashboard only; enable in Settings for UDP / HTTP){% endif %}</td></tr>
+      <tr><td><code>PING</code> · <code>STATUS</code> · <code>HELP</code></td><td>heartbeat, what is on air, command list</td></tr>
+    </table>
+  </div>
+  <div class="block">
+    <h3>Arguments</h3>
+    <table class="ref-table">
+      <tr><td><code>&lt;src&gt;</code></td><td><code>1</code>–<code>{{ n }}</code> (also <code>CAM3</code>, <code>IN3</code>); <code>BLACK</code>, <code>BARS</code>, <code>COL1</code>, <code>COL2</code>,
+        <code>MP1</code>, <code>MP1K</code>, <code>MP2</code>, <code>MP2K</code>, <code>SS</code>, <code>CF1</code>–<code>CF4</code>, <code>PGM</code>, <code>PVW</code>, <code>ME2PGM</code>…,
+        <code>AUX1</code>…, or <code>#&lt;id&gt;</code> for any raw ATEM source id</td></tr>
+      <tr><td><code>&lt;rate&gt;</code></td><td>frames (<code>25</code>) or seconds (<code>1s</code>, <code>0.5s</code>) at the switcher's current frame rate{% if status.switcher and status.switcher.video_mode and status.switcher.video_mode.name %} ({{ status.switcher.video_mode.name }}){% endif %}; 1–250 frames</td></tr>
+      <tr><td><code>[MEn]</code></td><td><code>ME1</code>–<code>ME{{ s.me_count }}</code>, default <code>ME1</code>. For <code>CUT</code>, <code>AUTO</code>, <code>FTB</code> a bare number is the ME (<code>CUT 2</code>)</td></tr>
+      <tr><td>replies</td><td>one line per command: <code>OK …</code>, <code>ERR …</code> or <code>PONG</code>. Check the first word.</td></tr>
+      <tr><td>case</td><td>not significant: <code>fade 2 1s</code> works</td></tr>
+    </table>
+    <h3 class="ref-sub">Current source names</h3>
+    <p class="ref-sources">
+      {% for i in status.inputs %}<code title="{{ i.name }}">{{ i.token }}</code>{% if i.label != i.token %}&nbsp;{{ i.label }}{% endif %}{{ ' · ' if not loop.last }}{% endfor %}
+    </p>
+  </div>
+</section>
+
+<h2 class="ref-h">Sending from your control system</h2>
+<section class="ref-grid two">
+  <div class="block">
+    <h3>Shell / anything with netcat</h3>
+<pre class="ref-code">echo "FADE 2 1s" | nc -u -w1 {{ udp_ip }} {{ s.udp_port }}
+python tools/udp_send.py {{ udp_ip }} {{ s.udp_port }} "PVW 3; CUT"</pre>
+    <h3 class="ref-sub">HTTP (curl, Companion HTTP, anything)</h3>
+<pre class="ref-code">curl "{{ base_url }}api/v1/cmd?c=FADE+2+1s&amp;format=text"{% if api_key_set %} \
+     -H "X-API-Key: &lt;key&gt;"{% endif %}
+OK FADE 2 25 ME1
+
+curl -X POST {{ base_url }}api/v1/cmd -d "FTB"{% if api_key_set %} -H "X-API-Key: &lt;key&gt;"{% endif %}
+
+curl "{{ base_url }}api/v1/status?format=text"
+OK CONNECTED {{ status.connection.product or 'ATEM' }} PGM=1 PVW=2</pre>
+    <p class="hint">HTTP status is 200 when every command succeeded, 422 otherwise. JSON by default: <code>{"ok": true, "replies": ["OK FADE 2 25 ME1"]}</code>.</p>
+  </div>
+  <div class="block">
+    <h3>Q-SYS (Lua)</h3>
+<pre class="ref-code">local setter = UdpSocket.New()
+setter:Open("0.0.0.0", 0)
+setter.Data = function(sock, pkt) print("Setter:", pkt.Data) end
+
+function cue(cmd) setter:Send("{{ udp_ip }}", {{ s.udp_port }}, cmd .. "\n") end
+
+Controls["Fade Cam 2"].EventHandler = function() cue("FADE 2 1s") end
+Controls["Go to black"].EventHandler  = function() cue("FTB") end
+Controls["Aux1 PGM"].EventHandler     = function() cue("AUX 1 PGM") end</pre>
+    <p class="hint">Full version with status parsing: <code>docs/qsys_integration.lua</code> in the repository.</p>
+    <h3 class="ref-sub">Crestron</h3>
+    <p class="hint">SIMPL: a <em>UDP Client</em> symbol at <code>{{ udp_ip }}</code> port <code>{{ s.udp_port }}</code>; send the string with <code>\n</code>. SIMPL#: <code>UDPClient.SendData("FADE 2 1s\n")</code>. Parse the reply by its first word.</p>
+    <h3 class="ref-sub">Bitfocus Companion</h3>
+    <p class="hint"><em>Generic UDP</em> connection to <code>{{ udp_ip }}:{{ s.udp_port }}</code>, one <em>Send message</em> action per button; or the <em>Generic HTTP</em> module with <code>GET {{ base_url }}api/v1/cmd?c=…</code>.</p>
+  </div>
+</section>
+{% endblock %}

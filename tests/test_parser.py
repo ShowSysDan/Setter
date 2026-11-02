@@ -6,7 +6,8 @@ from app.services.command_parser import CommandRunner, parse_rate, parse_source,
 
 class StubSettings:
     def __init__(self, **kw):
-        self.data = {"me_count": 2, "input_count": 8, "aux_count": 3, "dsk_count": 2, "macro_count": 10}
+        self.data = {"me_count": 2, "input_count": 8, "aux_count": 3, "dsk_count": 2, "macro_count": 10,
+                     "raw_external": False}
         self.data.update(kw)
 
     def get(self, key):
@@ -101,9 +102,22 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(self.ctl.calls[-1], ("macro", (2,), {}))
 
     def test_raw(self):
-        self.assertEqual(self.run_cmd("RAW CPgI 00 00 00 01"), ["OK RAW CPgI 00000001"])
+        # the web panel may always send RAW
+        self.assertEqual(self.runner.execute("RAW CPgI 00 00 00 01", via="ui"), ["OK RAW CPgI 00000001"])
         self.assertEqual(self.ctl.calls[-1], ("raw", ("CPgI", b"\x00\x00\x00\x01"), {}))
-        self.assertEqual(self.run_cmd("RAW CPg 00")[0][:3], "ERR")
+        self.assertEqual(self.runner.execute("RAW CPg 00", via="ui")[0][:3], "ERR")
+        # UDP / HTTP control only when the setting allows it
+        self.assertTrue(self.run_cmd("RAW CPgI 00 00 00 01")[0].startswith("ERR"))
+        self.assertEqual(self.ctl.calls[-1][0], "raw")   # unchanged: the refused one was not sent
+        self.ctl.settings.data["raw_external"] = True
+        self.assertEqual(self.run_cmd("RAW CPgI 00 00 00 01"), ["OK RAW CPgI 00000001"])
+
+    def test_limits(self):
+        many = ";".join(["PING"] * 33)
+        self.assertEqual(self.run_cmd(many), ["ERR too many commands in one message (max 32)"])
+        self.assertEqual(self.run_cmd(";".join(["PING"] * 32)), ["PONG"] * 32)
+        self.assertTrue(self.run_cmd("PGM " + "1" * 300)[0].startswith("ERR"))
+        self.assertEqual(self.run_cmd("PING\r\nPING"), ["PONG", "PONG"])
 
     def test_multiple_and_errors(self):
         replies = self.run_cmd("PVW 3; CUT\nPING")
