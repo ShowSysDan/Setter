@@ -355,6 +355,26 @@ const Setter = (() => {
     });
   }
 
+  /* ---------------------------------------------------------------- reference */
+  function referencePage() {
+    document.addEventListener('click', async ev => {
+      const btn = ev.target.closest('button[data-send]');
+      if (!btn) return;
+      const out = btn.parentElement.querySelector('.ref-reply');
+      btn.disabled = true;
+      try {
+        const data = await send(btn.dataset.send);
+        if (out) {
+          out.textContent = data.replies.join('\n');
+          out.classList.toggle('err', !data.ok);
+          out.hidden = false;
+        }
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
   /* Bootstrap from the page marker rather than an inline <script>, so the
      Content-Security-Policy can forbid inline script entirely. */
   document.addEventListener('DOMContentLoaded', () => {
@@ -366,8 +386,10 @@ const Setter = (() => {
       if (initial) dashboard(initial);
     } else if (page === 'settings') {
       settingsPage();
+    } else if (page === 'reference') {
+      referencePage();
     }
   });
 
-  return { dashboard, settingsPage, send, toast };
+  return { dashboard, settingsPage, referencePage, send, toast };
 })();

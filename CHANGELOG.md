@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- In-app API library at `/reference` (nav: **API**): task cookbook with *Send*
+  buttons, command and argument reference with the switcher's current source names,
+  and shell / HTTP / Q-SYS / Crestron / Companion snippets pre-filled with this
+  Setter's address and port.
+
 Hardening sweep:
 
 - UDP control: allowed-senders list (IPs / CIDRs) in Settings; other senders are

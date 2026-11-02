@@ -215,3 +215,27 @@ p.help { margin: 8px 0 0; }
   .log li { grid-template-columns: 60px 1fr; }
   .log .via { display: none; }
 }
+
+/* ---------------------------------------------------------------- reference page */
+.ref-intro { margin-top: 4px; }
+.ref-h { margin: 22px 0 10px; }
+.ref-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.ref-grid.two { grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); margin-top: 16px; }
+.ref-card h3, .ref-grid h3 { font-size: 15px; margin: 0 0 6px; }
+.ref-sub { margin-top: 14px !important; }
+.ref-ex { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "cmd btn" "what what" "reply reply"; gap: 4px 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--surface-2); }
+.ref-ex:first-of-type { border-top: 0; }
+.ref-cmd { grid-area: cmd; font-size: 14px; justify-self: start; }
+.ref-what { grid-area: what; color: var(--muted); font-size: 13px; }
+.ref-ex .btn { grid-area: btn; }
+.ref-reply { grid-area: reply; margin-top: 0; }
+.ref-table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.ref-table th { text-align: left; padding: 4px 10px 4px 0; white-space: nowrap; vertical-align: top; color: var(--muted); font-weight: 500; }
+.ref-table td { padding: 4px 0; vertical-align: top; }
+.ref-table td:first-child { padding-right: 12px; white-space: nowrap; }
+.ref-code { background: var(--bg); border-radius: var(--radius); padding: 10px 12px; white-space: pre-wrap; overflow-x: auto; font-size: 13px; }
+.ref-sources code { margin-right: 2px; }
+.warn { color: var(--pgm); font-size: 13px; }
+@media (max-width: 520px) {
+  .ref-table td:first-child { white-space: normal; }
+}

@@ -20,6 +20,7 @@ Current version: **0.1.0**
 | **Configurable layout** | Set how many inputs, MEs, aux outputs, DSKs and macros to show; the control strings validate against the same numbers |
 | **UDP control** | Text commands like `FADE 2 25` on a UDP port, with `OK` / `ERR` replies back to the sender |
 | **HTTP control** | The same commands at `/api/v1/cmd` for systems that prefer HTTP; optional API key |
+| **In-app API library** | The **API** page in the web UI: a cookbook (fade to a source on an ME, go to black, aux routing, keys, macros) with *Send* buttons that run each example on the live switcher, the full command reference, and ready-to-paste snippets for shell, HTTP, Q-SYS, Crestron and Companion, filled in with this Setter's address and port |
 | **Test tools** | A control-string box on the dashboard (same parser as UDP), a raw ATEM command sender, a switcher simulator, and a UDP send script |
 | **Live state** | Dashboard polls the switcher state every second — tallies, transition progress, FTB, DSK state |
 | **Reconnects** | Drops and reconnects automatically; handles the ATEM's ack / retransmit scheme |
@@ -270,7 +271,10 @@ The Settings page also shows what the switcher reports about itself
 
 ## Control Strings
 
-Full reference in [`docs/udp_protocol.md`](docs/udp_protocol.md). The short version:
+Full reference in [`docs/udp_protocol.md`](docs/udp_protocol.md), and on the
+**API** page of the running app (`/reference`), where every example has a
+*Send* button and the snippets already carry your Setter's address and
+port. The short version:
 
 ```
 PGM <src> [MEn]      PVW <src> [MEn]      CUT [MEn]      AUTO [MEn]
@@ -308,6 +312,8 @@ feed shows what was sent.
 
 | Method | Endpoint | Description |
 |---|---|---|
+| GET | `/reference` | The in-app API library (HTML) |
+| GET | `/healthz` | `{"ok": true, "connection": "connected"}`; no login needed, for monitoring |
 | GET | `/api/version` | `{"version": "0.1.0"}` |
 | GET | `/api/status` | Connection state, settings, switcher state, inputs with names, UDP listener status |
 | GET | `/api/events?since=<id>` | Activity feed entries after `<id>` |
