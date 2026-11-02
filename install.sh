@@ -10,7 +10,7 @@
 # Safe to re-run after a git pull: it updates requirements and restarts the
 # service. Options, as environment variables:
 #
-#   PORT=8080  sudo bash install.sh      HTTP port (default 5000)
+#   PORT=8080  sudo bash install.sh      HTTP port (default 5110)
 #   HOST=10.1.1.5 sudo bash install.sh   bind the web panel to one interface (default 0.0.0.0)
 
 set -euo pipefail
@@ -18,7 +18,7 @@ set -euo pipefail
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_USER="${SUDO_USER:-$(whoami)}"
 SERVICE=/etc/systemd/system/setter.service
-PORT="${PORT:-5000}"
+PORT="${PORT:-5110}"
 HOST="${HOST:-0.0.0.0}"
 
 if [ "$(id -u)" -ne 0 ]; then
