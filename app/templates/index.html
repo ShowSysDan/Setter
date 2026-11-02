@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Setter — Switcher{% endblock %}
+{% block content %}
+
+<section class="strip" id="strip">
+  <span id="strip-model">{{ status.connection.product or 'Not connected' }}</span>
+  <span id="strip-host">{{ status.connection.host }}:{{ status.connection.port }}</span>
+  <span id="strip-mode"></span>
+  <span id="strip-udp">UDP control on port {{ status.udp.port }}</span>
+  <span class="strip-actions">
+    <button class="btn small" data-action="connect" id="btn-connect">Connect</button>
+    <button class="btn small" data-action="disconnect" id="btn-disconnect">Disconnect</button>
+  </span>
+</section>
+
+<div class="notice" id="notice" hidden></div>
+
+<section class="panel-grid">
+  <div class="buses">
+    <div class="me-tabs" id="me-tabs" hidden></div>
+
+    <div class="bus" id="bus-pgm">
+      <div class="bus-head">
+        <span class="bus-name pgm-name">Program</span>
+        <span class="bus-current" id="pgm-current">–</span>
+      </div>
+      <div class="keys" id="pgm-keys"></div>
+    </div>
+
+    <div class="bus" id="bus-pvw">
+      <div class="bus-head">
+        <span class="bus-name pvw-name">Preview</span>
+        <span class="bus-current" id="pvw-current">–</span>
+      </div>
+      <div class="keys" id="pvw-keys"></div>
+    </div>
+  </div>
+
+  <div class="transition">
+    <div class="trans-head">Transition <span class="trans-state" id="trans-state"></span></div>
+    <div class="trans-big">
+      <button class="key cut" data-cmd="CUT">Cut</button>
+      <button class="key auto" data-cmd="AUTO" id="btn-auto">Auto</button>
+    </div>
+    <div class="trans-row">
+      <label for="style">Style</label>
+      <select id="style">
+        <option value="MIX">Mix</option>
+        <option value="DIP">Dip</option>
+        <option value="WIPE">Wipe</option>
+        <option value="DVE">DVE</option>
+        <option value="STING">Stinger</option>
+      </select>
+      <label for="rate">Rate</label>
+      <input id="rate" type="number" min="1" max="250" value="{{ status.settings.default_fade_frames }}">
+      <span class="unit" id="rate-secs"></span>
+    </div>
+    <div class="trans-row">
+      <label for="fade-src">Fade to</label>
+      <select id="fade-src"></select>
+      <button class="btn" id="btn-fade">Fade</button>
+    </div>
+    <div class="trans-row">
+      <button class="key ftb" data-cmd="FTB" id="btn-ftb">Fade to black</button>
+      <label for="ftb-rate">Rate</label>
+      <input id="ftb-rate" type="number" min="1" max="250" value="{{ status.settings.default_fade_frames }}">
+    </div>
+  </div>
+</section>
+
+<section class="outputs">
+  <div class="block" id="aux-block" {% if status.settings.aux_count == 0 %}hidden{% endif %}>
+    <h2>Aux outputs</h2>
+    <div class="aux-list" id="aux-list"></div>
+  </div>
+  <div class="block" id="dsk-block" {% if status.settings.dsk_count == 0 %}hidden{% endif %}>
+    <h2>Downstream keys</h2>
+    <div class="dsk-list" id="dsk-list"></div>
+  </div>
+  <div class="block" id="macro-block" {% if status.settings.macro_count == 0 %}hidden{% endif %}>
+    <h2>Macros</h2>
+    <div class="macro-list" id="macro-list"></div>
+  </div>
+</section>
+
+<section class="tools">
+  <div class="block">
+    <h2>Send a control string</h2>
+    <p class="hint">Goes through the same parser as the UDP listener and <code>/api/v1/cmd</code>, so what works here works from Q-SYS or Crestron. Try <code>FADE 2 1s</code>, <code>AUX 1 BARS</code> or <code>HELP</code>.</p>
+    <form class="inline-form" id="cmd-form">
+      <input id="cmd-text" type="text" placeholder="FADE 2 25" autocomplete="off" spellcheck="false">
+      <button class="btn primary" type="submit">Send</button>
+    </form>
+    <pre class="reply" id="cmd-reply" hidden></pre>
+  </div>
+  <div class="block">
+    <h2>Raw ATEM command</h2>
+    <p class="hint">Four-character command name and hex payload, sent as-is. <code>CPgI 00 00 00 01</code> cuts input 1 to ME1 program.</p>
+    <form class="inline-form" id="raw-form">
+      <input id="raw-name" type="text" maxlength="4" placeholder="CPgI" autocomplete="off" spellcheck="false" class="narrow">
+      <input id="raw-hex" type="text" placeholder="00 00 00 01" autocomplete="off" spellcheck="false">
+      <button class="btn" type="submit">Send</button>
+    </form>
+    <pre class="reply" id="raw-reply" hidden></pre>
+  </div>
+</section>
+
+<section class="log-block">
+  <div class="log-head">
+    <h2>Activity</h2>
+    <span class="hint" id="udp-last"></span>
+  </div>
+  <ol class="log" id="log"></ol>
+</section>
+
+{% endblock %}
+{% block scripts %}
+<script>Setter.dashboard({{ status|tojson }});</script>
+{% endblock %}

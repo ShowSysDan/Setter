@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Setter — Settings{% endblock %}
+{% block content %}
+{% set s = status.settings %}
+
+<form class="settings" id="settings-form">
+  <fieldset>
+    <legend>Switcher</legend>
+    <div class="field">
+      <label for="switcher_ip">IP address</label>
+      <input id="switcher_ip" name="switcher_ip" type="text" value="{{ s.switcher_ip }}" required>
+      <span class="help">Blackmagic's factory default is 192.168.10.240. Changing this reconnects immediately.</span>
+    </div>
+    <div class="field">
+      <label for="switcher_port">Port</label>
+      <input id="switcher_port" name="switcher_port" type="number" min="1" max="65535" value="{{ s.switcher_port }}">
+      <span class="help">Always 9910 on real hardware.</span>
+    </div>
+    <div class="field check">
+      <input id="auto_connect" name="auto_connect" type="checkbox" value="true" {% if s.auto_connect %}checked{% endif %}>
+      <label for="auto_connect">Connect on start-up and reconnect automatically</label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>What to show</legend>
+    <p class="help">These set how many buttons the dashboard draws and what numbers the control strings accept. The switcher reports
+      <span id="topology-hint">{% if status.switcher and status.switcher.topology %}{{ status.switcher.topology.sources }} sources, {{ status.switcher.topology.mes }} ME, {{ status.switcher.topology.aux }} aux, {{ status.switcher.topology.dsks }} DSK{% else %}nothing yet (not connected){% endif %}</span>.
+    </p>
+    <div class="field-row">
+      <div class="field">
+        <label for="input_count">Inputs</label>
+        <input id="input_count" name="input_count" type="number" min="1" max="40" value="{{ s.input_count }}">
+      </div>
+      <div class="field">
+        <label for="me_count">Mix effects</label>
+        <input id="me_count" name="me_count" type="number" min="1" max="4" value="{{ s.me_count }}">
+      </div>
+      <div class="field">
+        <label for="aux_count">Aux outputs</label>
+        <input id="aux_count" name="aux_count" type="number" min="0" max="24" value="{{ s.aux_count }}">
+      </div>
+      <div class="field">
+        <label for="dsk_count">Downstream keys</label>
+        <input id="dsk_count" name="dsk_count" type="number" min="0" max="4" value="{{ s.dsk_count }}">
+      </div>
+      <div class="field">
+        <label for="macro_count">Macro buttons</label>
+        <input id="macro_count" name="macro_count" type="number" min="0" max="100" value="{{ s.macro_count }}">
+      </div>
+      <div class="field">
+        <label for="default_fade_frames">Default rate (frames)</label>
+        <input id="default_fade_frames" name="default_fade_frames" type="number" min="1" max="250" value="{{ s.default_fade_frames }}">
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>UDP control</legend>
+    <div class="field check">
+      <input id="udp_enabled" name="udp_enabled" type="checkbox" value="true" {% if s.udp_enabled %}checked{% endif %}>
+      <label for="udp_enabled">Listen for control strings over UDP</label>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="udp_host">Bind address</label>
+        <input id="udp_host" name="udp_host" type="text" value="{{ s.udp_host }}">
+        <span class="help">0.0.0.0 listens on every interface.</span>
+      </div>
+      <div class="field">
+        <label for="udp_port">Port</label>
+        <input id="udp_port" name="udp_port" type="number" min="1" max="65535" value="{{ s.udp_port }}">
+      </div>
+    </div>
+    <div class="field check">
+      <input id="udp_reply" name="udp_reply" type="checkbox" value="true" {% if s.udp_reply %}checked{% endif %}>
+      <label for="udp_reply">Send an OK / ERR reply back to the sender</label>
+    </div>
+    {% if status.udp.error %}<p class="error">Listener is not running: {{ status.udp.error }}</p>{% endif %}
+  </fieldset>
+
+  <fieldset>
+    <legend>Remote syslog</legend>
+    <p class="help">Every action, connection event and incoming control string is sent at INFO; anything the
+      application itself logs at WARNING or ERROR goes too. Local syslog on this machine stays on regardless.</p>
+    <div class="field check">
+      <input id="syslog_enabled" name="syslog_enabled" type="checkbox" value="true" {% if s.syslog_enabled %}checked{% endif %}>
+      <label for="syslog_enabled">Send to a remote syslog server</label>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="syslog_host">Server</label>
+        <input id="syslog_host" name="syslog_host" type="text" value="{{ s.syslog_host }}" placeholder="10.1.1.10 or syslog.venue.local">
+      </div>
+      <div class="field">
+        <label for="syslog_port">Port</label>
+        <input id="syslog_port" name="syslog_port" type="number" min="1" max="65535" value="{{ s.syslog_port }}">
+        <span class="help">514 for UDP; TCP is often 514 or 601.</span>
+      </div>
+      <div class="field">
+        <label for="syslog_protocol">Protocol</label>
+        <select id="syslog_protocol" name="syslog_protocol">
+          <option value="udp" {% if s.syslog_protocol == 'udp' %}selected{% endif %}>UDP</option>
+          <option value="tcp" {% if s.syslog_protocol == 'tcp' %}selected{% endif %}>TCP</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="syslog_facility">Facility</label>
+        <select id="syslog_facility" name="syslog_facility">
+          {% for f in ['local0','local1','local2','local3','local4','local5','local6','local7','user','daemon'] %}
+          <option value="{{ f }}" {% if s.syslog_facility == f %}selected{% endif %}>{{ f }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="field-row syslog-status">
+      <span class="help" id="syslog-status">
+        {% set sl = status.syslog %}
+        {% if sl.running %}Sent {{ sl.sent }}, failed {{ sl.failed }}{% if sl.last_error %} — last error: {{ sl.last_error }}{% endif %}{% else %}Not running{% endif %}
+      </span>
+      <button class="btn small" type="button" id="btn-syslog-test" {% if not status.syslog.running %}disabled{% endif %}>Send test message</button>
+    </div>
+  </fieldset>
+
+  <div class="form-actions">
+    <button class="btn primary" type="submit">Save changes</button>
+    <span class="hint" id="settings-result"></span>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>Setter.settingsPage();</script>
+{% endblock %}

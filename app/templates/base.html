@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Setter{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('main.index') }}">Setter</a>
+    <nav class="topnav">
+      <a href="{{ url_for('main.index') }}" {% if current_path == '/' %}aria-current="page"{% endif %}>Switcher</a>
+      <a href="{{ url_for('main.settings') }}" {% if current_path.startswith('/settings') %}aria-current="page"{% endif %}>Settings</a>
+    </nav>
+    <div class="conn" id="conn" data-state="{{ status.connection.state }}">
+      <span class="conn-dot"></span>
+      <span class="conn-text">{{ status.connection.product or status.connection.host }}</span>
+    </div>
+  </header>
+
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="foot">Setter {{ version }}</footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
