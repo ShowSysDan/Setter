@@ -6,7 +6,7 @@
   <title>{% block title %}Setter{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body data-page="{% block page %}{% endblock %}">
   <header class="topbar">
     <a class="brand" href="{{ url_for('main.index') }}">Setter</a>
     <nav class="topnav">

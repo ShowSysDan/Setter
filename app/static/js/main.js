@@ -355,5 +355,19 @@ const Setter = (() => {
     });
   }
 
+  /* Bootstrap from the page marker rather than an inline <script>, so the
+     Content-Security-Policy can forbid inline script entirely. */
+  document.addEventListener('DOMContentLoaded', () => {
+    const page = document.body.dataset.page;
+    if (page === 'dashboard') {
+      const el = $('#initial-status');
+      let initial = null;
+      try { initial = JSON.parse(el.textContent); } catch (e) { initial = null; }
+      if (initial) dashboard(initial);
+    } else if (page === 'settings') {
+      settingsPage();
+    }
+  });
+
   return { dashboard, settingsPage, send, toast };
 })();

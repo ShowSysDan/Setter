@@ -43,7 +43,7 @@ should send.
 | `DSK <n> <on\|off\|auto\|toggle>` | Downstream keyer `n`. `auto` transitions it; `on`/`off` cut it. |
 | `KEY <n> <on\|off> [MEn]` | Upstream keyer `n` on the given ME. |
 | `MACRO <n>` | Run macro `n` (1-based, as shown in ATEM Software Control). |
-| `RAW <NAME> <hex>` | Send any 4-character ATEM command with a hex payload. `RAW CPgI 00 00 00 01` cuts input 1 to ME1. |
+| `RAW <NAME> <hex>` | Send any 4-character ATEM command with a hex payload. `RAW CPgI 00 00 00 01` cuts input 1 to ME1. Refused over UDP and HTTP unless *RAW over UDP / HTTP control* is on in Settings. |
 
 ## Arguments
 

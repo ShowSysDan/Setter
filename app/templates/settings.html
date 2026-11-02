@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Setter — Settings{% endblock %}
+{% block page %}settings{% endblock %}
 {% block content %}
 {% set s = status.settings %}
 
@@ -76,6 +77,20 @@
       <input id="udp_reply" name="udp_reply" type="checkbox" value="true" {% if s.udp_reply %}checked{% endif %}>
       <label for="udp_reply">Send an OK / ERR reply back to the sender</label>
     </div>
+    <div class="field">
+      <label for="udp_allowed_senders">Allowed senders</label>
+      <input id="udp_allowed_senders" name="udp_allowed_senders" type="text" value="{{ s.udp_allowed_senders }}"
+             placeholder="10.1.1.20, 10.1.2.0/24" autocomplete="off" spellcheck="false">
+      <span class="help">IP addresses or CIDR networks, comma separated. Datagrams from anywhere else are dropped without
+        a reply and logged. Empty accepts every sender{% if not s.udp_allowed_senders %} — <strong>fill this in before a show</strong>{% endif %}.
+        {% if status.udp.refused %}Refused so far: {{ status.udp.refused }}.{% endif %}</span>
+    </div>
+    <div class="field check">
+      <input id="raw_external" name="raw_external" type="checkbox" value="true" {% if s.raw_external %}checked{% endif %}>
+      <label for="raw_external">Accept <code>RAW</code> commands over UDP / HTTP control</label>
+    </div>
+    <span class="help">Off by default: a raw ATEM command can change anything on the switcher. The raw sender on the
+      dashboard works regardless.</span>
     {% if status.udp.error %}<p class="error">Listener is not running: {{ status.udp.error }}</p>{% endif %}
   </fieldset>
 
@@ -128,6 +143,4 @@
   </div>
 </form>
 {% endblock %}
-{% block scripts %}
-<script>Setter.settingsPage();</script>
-{% endblock %}
+

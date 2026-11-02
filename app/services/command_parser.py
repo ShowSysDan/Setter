@@ -61,12 +61,19 @@ HELP = [
 ]
 
 
+MAX_COMMANDS_PER_MESSAGE = 32   # more than any cue needs; bounds the work one datagram can cause
+MAX_COMMAND_LENGTH = 200        # a RAW payload of 90 bytes still fits
+
+
 class CommandError(ValueError):
     pass
 
 
 def split_commands(text: str) -> list:
-    return [part.strip() for part in re.split(r"[\n;]+", text or "") if part.strip()]
+    parts = [part.strip() for part in re.split(r"[\r\n;]+", text or "") if part.strip()]
+    if len(parts) > MAX_COMMANDS_PER_MESSAGE:
+        raise CommandError(f"too many commands in one message (max {MAX_COMMANDS_PER_MESSAGE})")
+    return parts
 
 
 def parse_source(token: str, input_count: int) -> int:
@@ -145,8 +152,15 @@ class CommandRunner:
 
     def execute(self, text: str, via: str = "udp", sender: str | None = None) -> list:
         replies = []
-        for line in split_commands(text):
+        try:
+            lines = split_commands(text)
+        except CommandError as exc:
+            self.controller.audit.warning("Command rejected", reason=str(exc), via=via, sender=sender)
+            return [f"ERR {exc}"]
+        for line in lines:
             try:
+                if len(line) > MAX_COMMAND_LENGTH:
+                    raise CommandError(f"command longer than {MAX_COMMAND_LENGTH} characters")
                 replies.append(self.run_one(line, via=via, sender=sender))
             except CommandError as exc:
                 replies.append(f"ERR {line}: {exc}")
@@ -259,10 +273,13 @@ class CommandRunner:
             return _reply(ctl.macro(idx, via=via, sender=sender), f"MACRO {idx + 1}")
 
         if cmd == "RAW":
+            if via != "ui" and not s.get("raw_external"):
+                raise CommandError("RAW is only accepted from the web panel "
+                                   "(enable 'RAW over UDP / HTTP control' in Settings to allow it)")
             _need(args, 1, "RAW <NAME> <hex>")
             name = args[0]
-            if len(name) != 4:
-                raise CommandError("raw command name must be exactly 4 characters")
+            if len(name) != 4 or not name.isascii() or not name.isprintable():
+                raise CommandError("raw command name must be exactly 4 ASCII characters")
             hexstr = "".join(args[1:]).replace(":", "").replace("-", "")
             try:
                 payload = bytes.fromhex(hexstr)

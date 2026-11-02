@@ -11,6 +11,7 @@ import threading
 
 from .atem_client import AtemClient, NotConnected, STYLE_NAMES
 from .command_parser import CommandRunner, SOURCE_ALIASES
+from .settings import parse_networks
 from .udp_listener import UdpListener
 
 # Internal sources shown on the dashboard buses, with the token the UI sends
@@ -76,10 +77,13 @@ class Controller:
                 return
             host = self.settings.get("udp_host")
             port = self.settings.get("udp_port")
-            self.udp = UdpListener(host, port, self._udp_handler, reply=self.settings.get("udp_reply"))
+            allowed = parse_networks(self.settings.get("udp_allowed_senders"))
+            self.udp = UdpListener(host, port, self._udp_handler, reply=self.settings.get("udp_reply"),
+                                   allowed=allowed, on_refused=self._udp_refused)
             try:
                 self.udp.start()
-                self.audit.info("UDP control listener started", host=host, port=port)
+                self.audit.info("UDP control listener started", host=host, port=port,
+                                allowed_senders=self.settings.get("udp_allowed_senders") or "any")
             except OSError as exc:
                 self.udp.error = str(exc)
                 self.audit.error("UDP control listener could not start", host=host, port=port, reason=str(exc))
@@ -102,7 +106,7 @@ class Controller:
         if "auto_connect" in changed:
             if changed["auto_connect"] and not self.client:
                 self.connect()
-        if {"udp_enabled", "udp_host", "udp_port", "udp_reply"} & set(changed):
+        if {"udp_enabled", "udp_host", "udp_port", "udp_reply", "udp_allowed_senders"} & set(changed):
             self.stop_udp()
             if self.settings.get("udp_enabled"):
                 self.start_udp()
@@ -112,6 +116,10 @@ class Controller:
     # ------------------------------------------------------------------ callbacks
     def _client_event(self, level, message):
         self.audit.log(level, message, via="switcher")
+
+    def _udp_refused(self, addr):
+        self.audit.warning("UDP control string refused: sender not in allowed list",
+                           sender=f"{addr[0]}:{addr[1]}", via="udp")
 
     def _udp_handler(self, text, addr):
         sender = f"{addr[0]}:{addr[1]}"
@@ -275,7 +283,8 @@ class Controller:
             "udp": {
                 "enabled": s["udp_enabled"], "host": s["udp_host"], "port": s["udp_port"],
                 "running": bool(udp and udp.running), "error": udp.error if udp else None,
-                "received": udp.received if udp else 0, "last": udp.last if udp else None,
+                "received": udp.received if udp else 0, "refused": udp.refused if udp else 0,
+                "last": udp.last if udp else None,
             },
             "syslog": self.audit.remote_status(),
         }

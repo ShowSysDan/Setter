@@ -1,3 +1,6 @@
-Flask>=3.0
-python-dotenv>=1.0
-gunicorn>=21.0
+# Exact versions, tested together (Python 3.10+). Bump deliberately, then
+# re-run the test suite; a show-control box should not pick up whatever
+# pip resolves on the day.
+Flask==3.1.3
+python-dotenv==1.2.4
+gunicorn==26.2.0

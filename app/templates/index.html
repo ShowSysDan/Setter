@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Setter — Switcher{% endblock %}
+{% block page %}dashboard{% endblock %}
 {% block content %}
 
 <section class="strip" id="strip">
@@ -115,5 +116,6 @@
 
 {% endblock %}
 {% block scripts %}
-<script>Setter.dashboard({{ status|tojson }});</script>
+{# Initial state as data, not code: the Content-Security-Policy forbids inline scripts. #}
+<script type="application/json" id="initial-status">{{ status|tojson }}</script>
 {% endblock %}
